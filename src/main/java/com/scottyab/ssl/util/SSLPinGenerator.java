@@ -1,12 +1,21 @@
 package com.scottyab.ssl.util;
 
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.net.URLConnection;
 import java.security.MessageDigest;
 import java.security.Principal;
+import java.security.SecureRandom;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
+import javax.net.ssl.HostnameVerifier;
+import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSession;
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
 import javax.net.ssl.TrustManager;
@@ -108,12 +117,21 @@ public class SSLPinGenerator {
 		System.out.println("**Run this on a trusted network**\nGenerating SSL pins for: " + hostname);
 		SSLContext context = SSLContext.getInstance("TLS");
 		PublicKeyExtractingTrustManager tm = new PublicKeyExtractingTrustManager();
-		context.init(null, new TrustManager[] { tm }, null);
-		SSLSocketFactory factory = context.getSocketFactory();
-		SSLSocket socket = (SSLSocket) factory.createSocket(hostname, hostPort);
-		socket.setSoTimeout(10000);
-		socket.startHandshake();
-		socket.close();
+		context.init(null, new TrustManager[] { tm }, new SecureRandom());
+
+        HttpsURLConnection.setDefaultSSLSocketFactory(context.getSocketFactory());
+        HttpsURLConnection.setDefaultHostnameVerifier(new HostnameVerifier() {
+			public boolean verify(String hostname, SSLSession session) {
+				System.out.println("HostnameVerifier");
+				return true;
+			}
+		});
+
+        URL url = new URL(String.format("https://%s:%d", hostname, hostPort));
+        
+        URLConnection conn = url.openConnection();
+        InputStream is = conn.getInputStream();
+        is.close();
 	}
 
 	/**
